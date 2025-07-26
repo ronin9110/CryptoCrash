@@ -2,12 +2,12 @@ const axios = require('axios');
 
 let cachedPrices = null;
 let lastFetched = 0;
-const CACHE_DURATION = 60000; // 10 seconds
+const CACHE_DURATION = 150000; 
 
 async function getPrices() {
   const now = Date.now();
 
-  if (cachedPrices && now - lastFetched < CACHE_DURATION) {
+  if (cachedPrices && (now - lastFetched) < CACHE_DURATION) {
     return cachedPrices;
   }
 
@@ -24,10 +24,13 @@ async function getPrices() {
       ETH: res.data.ethereum.usd
     };
     lastFetched = now;
+
     return cachedPrices;
   } catch (error) {
     console.error('⚠️ Price fetch failed:', error.message);
-    return cachedPrices || { BTC: 60000, ETH: 3000 }; // fallback
+
+    // Return cached prices if available, otherwise fallback
+    return cachedPrices || { BTC: 60000, ETH: 3000 };
   }
 }
 

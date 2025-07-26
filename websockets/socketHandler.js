@@ -1,17 +1,18 @@
-const { startNewRound, endRound, getCurrentRound } = require('../services/gameService');
+const { startNewRound, endRound: gameServiceEndRound, getCurrentRound } = require('../services/gameService');
 const Bet = require('../models/Bet');
 const { getPrices } = require('../services/priceService');
-const { updateWallet } = require('../services/walletService');
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
+const { updateWallet } = require('../services/walletService');
+const priceService = require('../services/priceService');
 
 module.exports = function(io) {
   console.log('WebSocket server initialized');
 
   let multiplier = 1.0;
   let roundInterval = null;
+  let currentGame = null;
 
-  // Broadcast multiplier every 100ms
   async function runGameRound() {
     const round = await startNewRound();
     const roundId = round.roundId;
@@ -19,16 +20,20 @@ module.exports = function(io) {
     const crashMultiplier = round.crashPoint;
 
     multiplier = 1.0;
+    currentGame = {
+      crashPoint: crashMultiplier,
+      bets: []
+    };
 
-    io.emit('round_start', { roundId, crashMultiplier });
+    io.emit('roundStart', { roundId, crashMultiplier });  
 
     roundInterval = setInterval(async () => {
       const elapsed = (Date.now() - startTime) / 1000;
-      multiplier = 1 + elapsed * 0.1; // exponential growth
+      multiplier = 1 + elapsed * 0.1;
 
       if (multiplier >= crashMultiplier) {
         clearInterval(roundInterval);
-        await endRound();
+        await endRound(currentGame);
         io.emit('crash', { crashPoint: crashMultiplier.toFixed(2) });
       } else {
         io.emit('multiplier', { multiplier: multiplier.toFixed(2) });
@@ -36,19 +41,64 @@ module.exports = function(io) {
     }, 100);
   }
 
-  // Repeat every 10 seconds
   setInterval(runGameRound, 10000);
 
-  // Handle player WebSocket connections
+  async function endRound(gameState) {
+    if (!gameState || !gameState.crashPoint) {
+      console.error("❌ gameState or crashPoint missing!");
+      return;
+    }
+
+    const crashPoint = gameState.crashPoint;
+    const priceMap = await priceService.getPrices();
+    const losers = [];
+
+    for (const bet of gameState.bets) {
+      const { playerId, amount, currency, hasCashedOut } = bet;
+
+      if (!hasCashedOut) {
+        const price = priceMap[currency];
+        const cryptoLoss = -1 * (amount / price);
+
+        const updatedWallet = await updateWallet(
+          playerId,
+          currency,
+          cryptoLoss,
+          'loss',
+          amount,
+          price
+        );
+
+        losers.push({
+          playerId,
+          newBalanceCrypto: updatedWallet.balance,
+          newBalanceUSD: (updatedWallet.balance * price).toFixed(2)
+        });
+      }
+    }
+
+    io.emit("roundCrash", {
+      crashPoint,
+      losers
+    });
+  }
+
   io.on('connection', socket => {
     console.log(`🟢 [${new Date().toLocaleTimeString()}] Socket: ${socket.id}`);
+
+    socket.on("placeBet", (bet) => {
+      if (currentGame) {
+        currentGame.bets.push(bet);
+      }
+    });
 
     socket.on('cashout', async ({ playerId }) => {
       try {
         if (!mongoose.Types.ObjectId.isValid(playerId)) {
-      socket.emit('error', { error: 'Invalid player ID format' });
-      return;
-    }
+          socket.emit('error', { error: 'Invalid player ID format' });
+          return;
+        }
+
         const round = getCurrentRound();
         if (!round || !round.isActive) return;
 
@@ -60,7 +110,6 @@ module.exports = function(io) {
         const payoutCrypto = bet.cryptoAmount * multiplier;
         const usdPayout = payoutCrypto * price;
 
-        // Update wallet & transaction
         await updateWallet(playerId, bet.currency, payoutCrypto, 'cashout', usdPayout, price);
 
         bet.cashedOut = true;
@@ -77,8 +126,7 @@ module.exports = function(io) {
 
       } catch (err) {
         console.error('WebSocket cashout error:', err.message);
-    socket.emit('error', { error: 'Cashout failed' });
-
+        socket.emit('error', { error: 'Cashout failed' });
       }
     });
 
