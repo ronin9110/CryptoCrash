@@ -1,0 +1,47 @@
+{
+  "info": {
+    "name": "CryptoCrash API",
+    "_postman_id": "d9a63ff2-12aa-4f6a-bb01-dc831761c234",
+    "description": "Test suite for Crypto Crash game API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Wallet Balance",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5000/api/players/<playerId>/wallet",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "players", "<playerId>", "wallet"]
+        }
+      }
+    },
+    {
+      "name": "Place Bet",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"playerId\": \"<playerId>\",\n  \"usdAmount\": 10,\n  \"currency\": \"BTC\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/game/bet",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "game", "bet"]
+        }
+      }
+    }
+  ]
+}
