@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
-import  socket  from "./socket";
+import socket from './socket';
 
 const apiurl = import.meta.env.VITE_API_BASE;
-
 
 const players = [
   { id: '64ec46e3e18c174e1eabf8cd', name: 'player1' },
@@ -12,7 +10,6 @@ const players = [
 ];
 
 export default function Game() {
-  
   const [playerId, setPlayerId] = useState('');
   const [usdAmount, setUsdAmount] = useState(10);
   const [currency, setCurrency] = useState('BTC');
@@ -23,63 +20,55 @@ export default function Game() {
   const [countdown, setCountdown] = useState(10);
   const [wallet, setWallet] = useState([]);
 
-  useEffect(() => {
-  socket.on("connect", () => {
-    console.log("✅ Socket connected", socket.id);
-  });
-}, []);
+  // 🔄 Fetch wallet
+  const fetchWallet = () => {
+    if (!playerId) return;
+    fetch(`${apiurl}/players/${playerId}/wallet`)
+      .then(res => res.json())
+      .then(setWallet)
+      .catch(console.error);
+  };
 
+  // ✅ Reset cashedOut when player changes
   useEffect(() => {
-    // Listener for successful cashout
-    socket.on("cashoutSuccess", (data) => {
-      setWallet(data);
+    setCashedOut(false);
+    fetchWallet();
+  }, [playerId]);
+
+  // ✅ Socket connect log
+  useEffect(() => {
+    socket.on('connect', () => {
+      console.log('✅ Socket connected', socket.id);
     });
-
-    return () => {
-      socket.off("cashoutSuccess");
-    };
+    return () => socket.off('connect');
   }, []);
 
+  // ✅ Round start timer and cashedOut reset
   useEffect(() => {
-  socket.on("roundCrash", ({ crashPoint, losers }) => {
-    if (losers.includes(playerId)) {
-      alert("❌ You lost your bet!");
+    socket.on('roundStart', () => {
+      setCountdown(10);
+      setCashedOut(false); // <-- RESET cashedOut for new round
 
-      // Option A: Fetch updated wallet from backend
-      fetch(`${import.meta.env.VITE_API_BASE}/api/wallet/${playerId}`)
-        .then(res => res.json())
-        .then(data => setWallet(data));
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    });
 
-      // Option B: Or manually deduct known bet amount from wallet (not recommended unless handled tightly)
-    }
-  });
+    return () => socket.off('roundStart');
+  }, []);
 
-  return () => socket.off("roundCrash");
-}, []);
-
-
-useEffect(() => {
-  socket.on("roundStart", () => {
-    setCountdown(10);
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  });
-
-  return () => socket.off("roundStart");
-}, []);
-
+  // 🔄 Game events
   useEffect(() => {
     socket.on('round_start', ({ crashMultiplier }) => {
       setCrashPoint(crashMultiplier);
       setStatus(`🚀 Round started! Crash point: ${crashMultiplier.toFixed(2)}x`);
-      setCashedOut(false);
+      setCashedOut(false); // <-- ALSO reset here for redundancy
     });
 
     socket.on('multiplier', ({ multiplier }) => {
@@ -94,6 +83,15 @@ useEffect(() => {
       if (pid === playerId) {
         alert(`✅ You cashed out at ${multiplier}x and earned $${usdPayout}`);
         setCashedOut(true);
+        fetchWallet();
+      }
+    });
+
+    socket.on('roundCrash', ({ crashPoint, losers }) => {
+      if (losers.some(loser => loser.playerId === playerId)) {
+        alert('❌ You lost your bet!');
+        fetchWallet();
+        setCashedOut(false); // Reset after crash loss
       }
     });
 
@@ -102,16 +100,11 @@ useEffect(() => {
       socket.off('multiplier');
       socket.off('crash');
       socket.off('player_cashout');
+      socket.off('roundCrash');
     };
   }, [playerId]);
 
-  useEffect(() => {
-    if (!playerId) return;
-    fetch(`${apiurl}/players/${playerId}/wallet`)
-      .then(res => res.json())
-      .then(setWallet);
-  }, [playerId, status]);
-
+  // 💸 Bet
   const handlePlaceBet = async () => {
     await fetch(`${apiurl}/game/bet`, {
       method: 'POST',
@@ -121,6 +114,7 @@ useEffect(() => {
     alert('✅ Bet placed!');
   };
 
+  // 💸 Cash out
   const handleCashout = () => {
     if (!playerId || cashedOut) return;
     socket.emit('cashout', { playerId });
@@ -130,7 +124,7 @@ useEffect(() => {
     <div style={{ padding: 30, fontFamily: 'monospace', textAlign: 'center' }}>
       <h1>💥 Crypto Crash Game</h1>
 
-      <select onChange={(e) => setPlayerId(e.target.value)} value={playerId}>
+      <select onChange={e => setPlayerId(e.target.value)} value={playerId}>
         <option value="">Select a Player</option>
         {players.map(p => (
           <option key={p.id} value={p.id}>{p.name}</option>
@@ -148,10 +142,10 @@ useEffect(() => {
           <input
             type="number"
             value={usdAmount}
-            onChange={(e) => setUsdAmount(Number(e.target.value))}
+            onChange={e => setUsdAmount(Number(e.target.value))}
             placeholder="$ USD"
           />
-          <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+          <select value={currency} onChange={e => setCurrency(e.target.value)}>
             <option value="BTC">BTC</option>
             <option value="ETH">ETH</option>
           </select>
