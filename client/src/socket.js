@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 
 const soketurl = import.meta.env.VITE_SOCKET_URL;
 
- let socket = io("http://localhost:5000/", {
+ let socket = io(soketurl, {
     transports: ['websocket'],
     reconnection: true,
     autoConnect: true,
