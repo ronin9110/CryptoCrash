@@ -27,7 +27,7 @@ async function getPrices() {
 
     return cachedPrices;
   } catch (error) {
-    console.error('⚠️ Price fetch failed:', error.message);
+    console.error(' Price fetch failed:', error.message);
 
     // Return cached prices if available, otherwise fallback
     return cachedPrices || { BTC: 60000, ETH: 3000 };

@@ -9,7 +9,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/CryptoCras
 const seedData = async () => {
   try {
     await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
 
     await Player.deleteMany({});
     await Wallet.deleteMany({});
@@ -37,12 +37,12 @@ const seedData = async () => {
       await ethWallet.save();
     }
 
-    console.log('✅ Seeded 5 players with BTC & ETH wallets.');
+    console.log('Seeded 5 players with BTC & ETH wallets.');
     players.forEach(p => console.log(`👤 ${p.username} - ID: ${p._id}`));
 
     mongoose.disconnect();
   } catch (err) {
-    console.error('❌ Seed error:', err);
+    console.error('Seed error:', err);
     mongoose.disconnect();
   }
 };

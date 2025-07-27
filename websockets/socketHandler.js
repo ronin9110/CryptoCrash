@@ -45,7 +45,7 @@ module.exports = function(io) {
 
   async function endRound(gameState) {
     if (!gameState || !gameState.crashPoint) {
-      console.error("❌ gameState or crashPoint missing!");
+      console.error("gameState or crashPoint missing!");
       return;
     }
 
@@ -84,7 +84,7 @@ module.exports = function(io) {
   }
 
   io.on('connection', socket => {
-    console.log(`🟢 [${new Date().toLocaleTimeString()}] Socket: ${socket.id}`);
+    console.log(`[${new Date().toLocaleTimeString()}] Socket: ${socket.id}`);
 
     socket.on("placeBet", (bet) => {
       if (currentGame) {
@@ -131,7 +131,7 @@ module.exports = function(io) {
     });
 
     socket.on('disconnect', (reason) => {
-      console.log(`🔴 Disconnected: ${socket.id} (${reason})`);
+      console.log(`Disconnected: ${socket.id} (${reason})`);
     });
   });
 };

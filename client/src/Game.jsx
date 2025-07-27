@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import socket from './socket';
 
 const apiurl = import.meta.env.VITE_API_BASE;
@@ -20,7 +20,6 @@ export default function Game() {
   const [countdown, setCountdown] = useState(10);
   const [wallet, setWallet] = useState([]);
 
-  // 🔄 Fetch wallet
   const fetchWallet = () => {
     if (!playerId) return;
     fetch(`${apiurl}/players/${playerId}/wallet`)
@@ -29,21 +28,18 @@ export default function Game() {
       .catch(console.error);
   };
 
-  // ✅ Reset cashedOut when player changes
   useEffect(() => {
     setCashedOut(false);
     fetchWallet();
   }, [playerId]);
 
-  // ✅ Socket connect log
   useEffect(() => {
     socket.on('connect', () => {
-      console.log('✅ Socket connected', socket.id);
+      console.log('Socket connected', socket.id);
     });
     return () => socket.off('connect');
   }, []);
 
-  // ✅ Round start timer and cashedOut reset
   useEffect(() => {
     socket.on('roundStart', () => {
       setCountdown(10);
@@ -67,7 +63,7 @@ export default function Game() {
   useEffect(() => {
     socket.on('round_start', ({ crashMultiplier }) => {
       setCrashPoint(crashMultiplier);
-      setStatus(`🚀 Round started! Crash point: ${crashMultiplier.toFixed(2)}x`);
+      setStatus(`Round started! Crash point: ${crashMultiplier.toFixed(2)}x`);
       setCashedOut(false); // <-- ALSO reset here for redundancy
     });
 
@@ -76,12 +72,12 @@ export default function Game() {
     });
 
     socket.on('crash', ({ crashPoint }) => {
-      setStatus(`💥 Crashed at ${parseFloat(crashPoint).toFixed(2)}x`);
+      setStatus(`Crashed at ${parseFloat(crashPoint).toFixed(2)}x`);
     });
 
     socket.on('player_cashout', ({ playerId: pid, multiplier, usdPayout }) => {
       if (pid === playerId) {
-        alert(`✅ You cashed out at ${multiplier}x and earned $${usdPayout}`);
+        alert(`You cashed out at ${multiplier}x and earned $${usdPayout}`);
         setCashedOut(true);
         fetchWallet();
       }
@@ -89,7 +85,7 @@ export default function Game() {
 
     socket.on('roundCrash', ({ crashPoint, losers }) => {
       if (losers.some(loser => loser.playerId === playerId)) {
-        alert('❌ You lost your bet!');
+        alert('You lost your bet!');
         fetchWallet();
         setCashedOut(false); // Reset after crash loss
       }
@@ -104,17 +100,15 @@ export default function Game() {
     };
   }, [playerId]);
 
-  // 💸 Bet
   const handlePlaceBet = async () => {
     await fetch(`${apiurl}/game/bet`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerId, usdAmount, currency })
     });
-    alert('✅ Bet placed!');
+    alert('Bet placed!');
   };
 
-  // 💸 Cash out
   const handleCashout = () => {
     if (!playerId || cashedOut) return;
     socket.emit('cashout', { playerId });
@@ -122,7 +116,7 @@ export default function Game() {
 
   return (
     <div style={{ padding: 30, fontFamily: 'monospace', textAlign: 'center' }}>
-      <h1>💥 Crypto Crash Game</h1>
+      <h1>Crypto Crash Game</h1>
 
       <select onChange={e => setPlayerId(e.target.value)} value={playerId}>
         <option value="">Select a Player</option>
@@ -133,12 +127,12 @@ export default function Game() {
 
       {playerId && (
         <>
-          <h2>💼 Wallet</h2>
+          <h2>Wallet:</h2>
           {wallet.map(w => (
             <p key={w.currency}>{w.currency}: {w.balance} (≈ ${w.usd})</p>
           ))}
 
-          <h2>🎯 Place a Bet</h2>
+          <h2>Place a Bet</h2>
           <input
             type="number"
             value={usdAmount}
@@ -151,10 +145,10 @@ export default function Game() {
           </select>
           <button onClick={handlePlaceBet}>Place Bet</button>
 
-          <h2>📈 Multiplier: {multiplier}x</h2>
+          <h2>Multiplier: {multiplier}x</h2>
           <p>{status}</p>
 
-          <button onClick={handleCashout} disabled={cashedOut}>💸 Cash Out</button>
+          <button onClick={handleCashout} disabled={cashedOut}>Cash Out</button>
           <p>Next round in: {countdown}s</p>
         </>
       )}
